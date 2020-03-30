@@ -3,16 +3,16 @@ Brewblox service for Tilt hydrometer
 """
 import asyncio
 import csv
-import sys
 import os.path
+import sys
+
 import numpy as np
-from pint import UnitRegistry
-import bluetooth._bluetooth as bluez
 from aiohttp import web
-from brewblox_service import (brewblox_logger,
-                              events,
-                              features,
-                              scheduler)
+from brewblox_service import brewblox_logger, events, features, scheduler
+from pint import UnitRegistry
+
+import bluetooth._bluetooth as bluez
+
 from . import blescan
 
 LOGGER = brewblox_logger("brewblox_tilt")
@@ -29,7 +29,7 @@ IDS = {
     "a495bb60c5b14b44b5121370f02d74de": "Blue",
     "a495bb70c5b14b44b5121370f02d74de": "Yellow",
     "a495bb80c5b14b44b5121370f02d74de": "Pink"
-    }
+}
 
 SG_CAL_FILE_PATH = "/share/SGCal.csv"
 TEMP_CAL_FILE_PATH = "/share/tempCal.csv"
@@ -113,10 +113,12 @@ class Calibrator():
 
 
 class MessageHandler():
-    def __init__(self):
+    def __init__(self, app):
         self.tiltsFound = set()
         self.noDevicesFound = True
         self.message = {}
+        self.lowerBound = app["config"]["lower_bound"]
+        self.upperBound = app["config"]["upper_bound"]
 
         self.sgCal = Calibrator(SG_CAL_FILE_PATH)
         self.tempCal = Calibrator(TEMP_CAL_FILE_PATH)
@@ -172,7 +174,7 @@ class MessageHandler():
             "Specific gravity": sg,
             "Signal strength[dBm]": rssi,
             "Plato[degP]": plato
-            }
+        }
 
         if cal_temp_f is not None:
             self.message[colour]["Calibrated temperature[degF]"] = cal_temp_f
@@ -218,6 +220,10 @@ class MessageHandler():
         if cal_sg is not None:
             cal_plato = self.sgToPlato(cal_sg)
 
+            if cal_sg < self.lowerBound or cal_sg > self.upperBound:
+                LOGGER.warn(f"Discarding message. cal_sg={cal_sg} bounds=[{self.lowerBound}, {self.upperBound}]")
+                return
+
         self.publishData(
             decodedData["colour"],
             decodedData["temp_f"],
@@ -236,7 +242,7 @@ class TiltScanner(features.ServiceFeature):
         super().__init__(app)
         self._task: asyncio.Task = None
         self.scanning = True
-        self.messageHandler = MessageHandler()
+        self.messageHandler = MessageHandler(app)
 
     async def startup(self, app: web.Application):
         self._task = await scheduler.create(app, self._run())
