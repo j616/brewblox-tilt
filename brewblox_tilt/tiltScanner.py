@@ -188,6 +188,8 @@ class MessageHandler():
         LOGGER.debug(self.message[colour])
 
     def sgToPlato(self, sg):
+        if sg is None:
+            return None
         # From https://www.brewersfriend.com/plato-to-sg-conversion-chart/
         plato = ((-1 * 616.868)
                  + (1111.14 * sg)
@@ -195,44 +197,47 @@ class MessageHandler():
                  + (135.997 * sg**3))
         return plato
 
+    def degFToDegC(self, degF):
+        if degF is None:
+            return None
+        return Q_(degF, ureg.degF).to("degC").magnitude
+
     def handleData(self, data):
         decodedData = self.decodeData(data)
         if decodedData is None:
             return
 
-        if decodedData["colour"] not in self.tiltsFound:
-            self.tiltsFound.add(decodedData["colour"])
-            LOGGER.info("Found Tilt: {}".format(decodedData["colour"]))
+        colour = decodedData["colour"]
 
-        temp_c = Q_(decodedData["temp_f"], ureg.degF).to("degC").magnitude
+        if colour not in self.tiltsFound:
+            self.tiltsFound.add(colour)
+            LOGGER.info("Found Tilt: {}".format(colour))
 
-        cal_temp_f = self.tempCal.calValue(
-            decodedData["colour"], decodedData["temp_f"])
-        cal_temp_c = None
-        if cal_temp_f is not None:
-            cal_temp_c = Q_(cal_temp_f, ureg.degF).to("degC").magnitude
+        raw_temp_f = decodedData["temp_f"]
+        raw_temp_c = self.degFToDegC(raw_temp_f)
 
-        cal_sg = self.sgCal.calValue(
-            decodedData["colour"], decodedData["sg"], 3)
+        cal_temp_f = self.tempCal.calValue(colour, raw_temp_f)
+        cal_temp_c = self.degFToDegC(cal_temp_f)
 
-        plato = self.sgToPlato(decodedData["sg"])
-        cal_plato = None
-        if cal_sg is not None:
-            cal_plato = self.sgToPlato(cal_sg)
+        raw_sg = decodedData["sg"]
+        cal_sg = self.sgCal.calValue(colour, raw_sg, 3)
 
-            if cal_sg < self.lowerBound or cal_sg > self.upperBound:
-                LOGGER.warn(f"Discarding message. cal_sg={cal_sg} bounds=[{self.lowerBound}, {self.upperBound}]")
-                return
+        if raw_sg < self.lowerBound or raw_sg > self.upperBound:
+            LOGGER.warn(f"Discarding message. raw_sg={raw_sg} bounds=[{self.lowerBound}, {self.upperBound}]")
+            return
+
+        raw_plato = self.sgToPlato(raw_sg)
+        cal_plato = self.sgToPlato(cal_sg)
 
         self.publishData(
-            decodedData["colour"],
-            decodedData["temp_f"],
+            colour,
+            raw_temp_f,
             cal_temp_f,
-            temp_c,
+            raw_temp_c,
             cal_temp_c,
-            decodedData["sg"],
+            raw_sg,
             cal_sg,
-            plato,
+            raw_plato,
             cal_plato,
             data["rssi"])
 
