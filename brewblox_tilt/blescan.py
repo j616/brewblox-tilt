@@ -38,6 +38,10 @@ def packed_bdaddr_to_string(bdaddr_packed):
         "<BBBBBB", bdaddr_packed[::-1]))
 
 
+def twosComp(num, len):
+    return num - (1 << len)
+
+
 def hci_enable_le_scan(sock):
     hci_toggle_le_scan(sock, 0x01)
 
@@ -84,6 +88,8 @@ def parse_events(sock, loop_count=100):
                 num_reports = pkt[0]
                 pkt_offset = 0
                 for i in range(0, num_reports):
+                    txpower = twosComp(pkt[pkt_offset - 2], 8)
+                    rssi = twosComp(pkt[pkt_offset - 1], 8)
                     data = {
                         "mac": packed_bdaddr_to_string(
                             pkt[pkt_offset + 3:pkt_offset + 9]),
@@ -93,8 +99,8 @@ def parse_events(sock, loop_count=100):
                             pkt[pkt_offset - 6: pkt_offset - 4]),
                         "minor": returnnumberpacket(
                             pkt[pkt_offset - 4: pkt_offset - 2]),
-                        "txpower": pkt[pkt_offset - 2],
-                        "rssi": pkt[pkt_offset - 1]
+                        "txpower": txpower,
+                        "rssi": rssi
                         }
 
                     myFullList.append(data)
