@@ -25,20 +25,13 @@ python3 ./install_tilt.py
 You need to add the service and set the eventbus port in your `docker-compose.yml` file.
 
 ```yaml
-tilt:
+  tilt:
     image: j616s/brewblox-tilt:latest
     restart: unless-stopped
     privileged: true
-    depends_on:
-        - history
     network_mode: host
-    command: -p 5001 --eventbus-host=172.17.0.1
     volumes:
         - ./tilt:/share
-
-eventbus:
-    ports:
-        - "5672:5672"
 ```
 
 Finally, you'll have to bring up the new service using

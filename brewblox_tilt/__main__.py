@@ -21,7 +21,7 @@ def create_parser(default_name="tilt"):
                         default=2)
 
     # Assumes a default configuration of running with --net=host
-    parser.set_defaults(mqtt_protocol="wss", mqtt_host="172.17.0.1")
+    parser.set_defaults(port=5001, mqtt_protocol="wss", mqtt_host="172.17.0.1")
     return parser
 
 
