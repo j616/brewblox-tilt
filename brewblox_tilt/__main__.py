@@ -1,7 +1,7 @@
 """
 Brewblox service for Tilt hydrometer
 """
-from brewblox_service import events, scheduler, service
+from brewblox_service import mqtt, scheduler, service
 
 from brewblox_tilt import tiltScanner
 
@@ -20,6 +20,8 @@ def create_parser(default_name="tilt"):
                         type=float,
                         default=2)
 
+    # Assumes a default configuration of running with --net=host
+    parser.set_defaults(mqtt_protocol="wss", mqtt_host="172.17.0.1")
     return parser
 
 
@@ -30,7 +32,7 @@ def main():
     scheduler.setup(app)
 
     # Initialize event handling
-    events.setup(app)
+    mqtt.setup(app)
 
     # Initialize your feature
     tiltScanner.setup(app)

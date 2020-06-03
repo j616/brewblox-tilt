@@ -8,7 +8,7 @@ import sys
 
 import numpy as np
 from aiohttp import web
-from brewblox_service import brewblox_logger, events, features, scheduler
+from brewblox_service import brewblox_logger, features, mqtt, scheduler
 from pint import UnitRegistry
 
 import bluetooth._bluetooth as bluez
@@ -258,8 +258,8 @@ class TiltScanner(features.ServiceFeature):
         self._task = None
 
     async def _run(self):
-        self.publisher = events.get_publisher(self.app)
         self.name = self.app["config"]["name"]  # The unique service name
+        self.topic = self.app["config"]["history_topic"]
 
         LOGGER.info("Started TiltScanner")
 
@@ -294,10 +294,10 @@ class TiltScanner(features.ServiceFeature):
             message = self.messageHandler.popMessage()
             if message != {}:
                 LOGGER.debug(message)
-                await self.publisher.publish(
-                    exchange=HISTORY_EXCHANGE,
-                    routing=self.name,
-                    message=message)
+                await mqtt.publish(self.app,
+                                   self.topic,
+                                   {"key": self.name,
+                                    "data": message})
 
         except KeyboardInterrupt:
             self.scanning = False
