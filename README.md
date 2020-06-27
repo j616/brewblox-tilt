@@ -53,7 +53,7 @@ services:
     restart: unless-stopped
     volumes: ['./tilt:/share']
 ```
-If you host brewblox on a different port (e.g. if you run brewblox on a NAS), you'll also want to add `--mqtt-port=<port>` to the command with the relevant port.
+If you host brewblox on a different port (e.g. if you run brewblox on a NAS), you'll also want to add `--mqtt-port=<port>` to the command with the relevant port (https).
 
 Create the directory for the tilt calibration
 ```bash
