@@ -40,6 +40,31 @@ Finally, you'll have to bring up the new service using
 brewblox-ctl up
 ```
 
+### Running on a remote machine
+On the remote machine in the directory you wish to install the service, create a `docker-compose.yml` file like this with the relevant IP address for the brewblox host.
+```yaml
+version: '3.7'
+services:
+  tilt:
+    command: --mqtt-host=<brewblox_hostname/IP>
+    image: j616s/brewblox-tilt:jamessa-mqtt
+    network_mode: host
+    privileged: true
+    restart: unless-stopped
+    volumes: ['./tilt:/share']
+```
+If you host brewblox on a different port (e.g. if you run brewblox on a NAS), you'll also want to add `--mqtt-port=<port>` to the command with the relevant port.
+
+Create the directory for the tilt calibration
+```bash
+mkdir tilt
+```
+
+Start the service with the following command
+```bash
+docker-compose up -d
+```
+
 ### Add to your graphs
 
 Once the Tilt service receives data from your Tilt(s), it should be available as graph metrics in BrewBlox.
