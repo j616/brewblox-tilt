@@ -47,7 +47,7 @@ version: '3.7'
 services:
   tilt:
     command: --mqtt-host=<brewblox_hostname/IP>
-    image: j616s/brewblox-tilt:jamessa-mqtt
+    image: j616s/brewblox-tilt:latest
     network_mode: host
     privileged: true
     restart: unless-stopped
