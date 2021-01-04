@@ -4,6 +4,7 @@ Brewblox service for Tilt hydrometer
 import asyncio
 import csv
 import os.path
+import time
 
 import bluetooth._bluetooth as bluez
 import numpy as np
@@ -34,6 +35,10 @@ TEMP_CAL_FILE_PATH = "/share/tempCal.csv"
 
 def setup(app):
     features.add(app, TiltScanner(app))
+
+
+def time_ms():
+    return time.time_ns() // 1000000
 
 
 class Calibrator():
@@ -250,6 +255,7 @@ class TiltScanner(repeater.RepeaterFeature):
     async def prepare(self):
         self.name = self.app["config"]["name"]  # The unique service name
         self.historyTopic = self.app["config"]["history_topic"] + f"/{self.name}"
+        self.stateTopic = self.app["config"]["state_topic"] + f"/{self.name}"
         LOGGER.info("Started TiltScanner")
 
         try:
@@ -288,7 +294,8 @@ class TiltScanner(repeater.RepeaterFeature):
     async def _publishMessage(self, message):
         LOGGER.debug(message)
 
-        # Publish history data
+        # Publish history
+        # Colours can share an event
         await mqtt.publish(self.app,
                            self.historyTopic,
                            {
@@ -296,3 +303,20 @@ class TiltScanner(repeater.RepeaterFeature):
                                "data": message,
                            },
                            err=False)
+
+        # Publish state
+        # Publish individual colours separately
+        # This lets us retain last published values for all colours
+        timestamp = time_ms()
+        for (colour, colour_data) in message.items():
+            await mqtt.publish(self.app,
+                               self.stateTopic + f"/{colour}",
+                               {
+                                   "key": self.name,
+                                   "type": "Tilt.state",
+                                   "colour": colour,
+                                   "timestamp": timestamp,
+                                   "data": colour_data,
+                               },
+                               err=False,
+                               retain=True)
