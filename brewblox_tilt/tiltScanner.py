@@ -4,19 +4,16 @@ Brewblox service for Tilt hydrometer
 import asyncio
 import csv
 import os.path
-import sys
-
-import numpy as np
-from aiohttp import web
-from brewblox_service import brewblox_logger, features, mqtt, scheduler
-from pint import UnitRegistry
 
 import bluetooth._bluetooth as bluez
+import numpy as np
+from aiohttp import web
+from brewblox_service import brewblox_logger, features, mqtt, repeater, strex
+from pint import UnitRegistry
 
 from . import blescan
 
 LOGGER = brewblox_logger("brewblox_tilt")
-HISTORY_EXCHANGE = "brewcast"
 ureg = UnitRegistry()
 Q_ = ureg.Quantity
 
@@ -242,64 +239,60 @@ class MessageHandler():
             data["rssi"])
 
 
-class TiltScanner(features.ServiceFeature):
+class TiltScanner(repeater.RepeaterFeature):
     def __init__(self, app: web.Application):
         super().__init__(app)
-        self._task: asyncio.Task = None
-        self.scanning = True
+        self.sock = None
         self.messageHandler = MessageHandler(app)
 
-    async def startup(self, app: web.Application):
-        self._task = await scheduler.create(app, self._run())
-
-    # Cleanup before the service shuts down
-    async def shutdown(self, app: web.Application):
-        await scheduler.cancel(self.app, self._task)
-        self._task = None
-
-    async def _run(self):
+    # Implements RepeaterFeature.prepare()
+    # The function is called once during startup
+    async def prepare(self):
         self.name = self.app["config"]["name"]  # The unique service name
-        self.topic = self.app["config"]["history_topic"]
-
+        self.historyTopic = self.app["config"]["history_topic"] + f"/{self.name}"
         LOGGER.info("Started TiltScanner")
 
         try:
-            sock = bluez.hci_open_dev(0)
+            self.sock = bluez.hci_open_dev(0)
 
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
-            LOGGER.error(f"Error accessing bluetooth device: {e}")
-            sys.exit(1)
+            LOGGER.error(f"Error accessing bluetooth device: {strex(e)}")
+            await asyncio.sleep(10)  # Avoid lockup caused by service reboots
+            raise web.GracefulExit(1)
 
-        blescan.hci_enable_le_scan(sock)
+        blescan.hci_enable_le_scan(self.sock)
 
-        # Keep scanning until the manager is told to stop.
-        while self.scanning:
-            self._processSocket(sock)
-            await self._publishMessage()
+    # Implements RepeaterFeature.run()
+    # The function is called in a loop until service stops,
+    # or a RepeaterCancelled error is raised
+    async def run(self):
+        message = self._processSocket(self.sock)
+        if message:
+            await self._publishMessage(message)
 
     def _processSocket(self, sock):
         try:
             for data in blescan.parse_events(sock, 10):
                 self.messageHandler.handleData(data)
-        except KeyboardInterrupt:
-            self.scanning = False
+            return self.messageHandler.popMessage()
+
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
-            self.scanning = False
             LOGGER.error(
-                f"Error accessing bluetooth device whilst scanning: {e}")
-            LOGGER.error("Exiting")
+                f"Error accessing bluetooth device whilst scanning: {strex(e)}")
+            raise web.GracefulExit(1)
 
-    async def _publishMessage(self):
-        try:
-            message = self.messageHandler.popMessage()
-            if message != {}:
-                LOGGER.debug(message)
-                await mqtt.publish(self.app,
-                                   self.topic,
-                                   {"key": self.name,
-                                    "data": message})
+    async def _publishMessage(self, message):
+        LOGGER.debug(message)
 
-        except KeyboardInterrupt:
-            self.scanning = False
-        except Exception as e:
-            LOGGER.error("Error when publishing data {}".format(repr(e)))
+        # Publish history data
+        await mqtt.publish(self.app,
+                           self.historyTopic,
+                           {
+                               "key": self.name,
+                               "data": message,
+                           },
+                           err=False)
