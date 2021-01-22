@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "brewblox-tilt"
-version = "2.1.0"
+version = "2.1.1"
 description = "Tilt hydrometer service for BrewBlox"
 authors = ["James Sandford <brewblox-tilt@j616s.co.uk>"]
 license = "GPL-3.0"
