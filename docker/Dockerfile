@@ -7,9 +7,9 @@ ENV PIP_EXTRA_INDEX_URL=https://www.piwheels.org/simple
 ENV PIP_FIND_LINKS=/wheeley
 
 RUN set -ex \
-    && pip3 install wheel \
-    && pip3 wheel --wheel-dir=/wheeley -r /app/requirements.txt \
-    && pip3 wheel --wheel-dir=/wheeley /app/dist/*
+    && pip install wheel \
+    && pip wheel --wheel-dir=/wheeley -r /app/requirements.txt \
+    && pip wheel --wheel-dir=/wheeley /app/dist/*
 
 FROM python:3.7-slim
 EXPOSE 5001
@@ -29,8 +29,8 @@ RUN \
     libatlas3-base \
     python3-bluez
 
-RUN pip3 install --no-index --find-links=/wheeley brewblox-tilt \
+RUN pip install --no-index --find-links=/wheeley brewblox-tilt \
     && rm -rf /wheeley \
-    && pip3 freeze
+    && pip freeze
 
 ENTRYPOINT ["python3", "-m", "brewblox_tilt"]
