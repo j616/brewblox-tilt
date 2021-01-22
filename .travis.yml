@@ -63,7 +63,7 @@ deploy:
       --tag ${DOCKER_REPO}:rpi-latest
       --build-arg service_info="$(git describe) @ $(date)"
       --push
-      --platform linux/amd64,linux/arm/v7
+      --platform linux/amd64,linux/arm/v7,linux/arm64/v8
       docker;
     skip_cleanup: true
     on:
@@ -77,7 +77,7 @@ deploy:
       --tag ${DOCKER_REPO}:rpi-$TAG
       --build-arg service_info="$(git describe) @ $(date)"
       --push
-      --platform linux/amd64,linux/arm/v7
+      --platform linux/amd64,linux/arm/v7,linux/arm64/v8
       docker;
     skip_cleanup: true
     on:
